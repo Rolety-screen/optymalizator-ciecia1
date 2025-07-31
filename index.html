@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <title>Optymalizator Cięcia v2 - Dodawanie Elementów</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacMacFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f4f7f6; color: #333; margin: 0; padding: 20px; }
+        .main-container { max-width: 1600px; margin: 0 auto; }
+        h1, h2, h3 { color: #2c3e50; padding-bottom: 10px; }
+        h1, h2 { border-bottom: 2px solid #3498db; }
+        .panel { background-color: #ffffff; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); padding: 20px; margin-bottom: 20px; }
+        .grid-dane { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 20px; align-items: end; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; }
+        input[type="number"], input[type="text"], select { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; height: 38px; }
+        button { background-color: #3498db; color: white; border: none; padding: 10px 15px; font-size: 16px; font-weight: bold; border-radius: 5px; cursor: pointer; transition: background-color 0.3s; height: 38px; }
+        button:hover { background-color: #35b929; }
+        button.run-button { background-color: #35b929; padding: 12px 25px; height: auto; }
+        button.run-button:hover { background-color: #2e9f24; }
+        #podsumowanie { background-color: #ecf0f1; border-left: 5px solid #3498db; padding: 15px; margin-bottom: 20px; font-size: 1.1em; }
+        #podsumowanie p { margin: 5px 0; }
+        .canvas-wrapper {
+            width: 100%;
+            background-color: #e8f0fe;
+            padding: 10px;
+            border-radius: 5px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .beam-container {
+            border: 1px solid #bdc3c7;
+            background-color: white;
+            padding: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        .beam-container h3 {
+            margin-top: 0;
+            padding-bottom: 5px;
+            border-bottom: 1px dashed #ccc;
+        }
+        canvas {
+            display: block;
+        }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; font-weight: bold; }
+        tr:nth-child(even) { background-color: #f9f9f9; }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <h1>Optymalizator Cięcia 2D</h1>
+
+        <div class="panel">
+            <h2>Dane Główne Rolki</h2>
+            <div class="grid-dane">
+                <div>
+                    <label for="wyborMaterialuRolki">Wybierz materiał rolki:</label>
+                    <select id="wyborMaterialuRolki" onchange="zaktualizujDaneRolki()"></select>
+                </div>
+                <div>
+                    <label for="szerRolki">Szerokość Rolki (mm):</label>
+                    <input type="number" id="szerRolki" value="1600">
+                </div>
+                <div>
+                    <label for="dlRolki">Długość Rolki (mm):</label>
+                    <input type="number" id="dlRolki" value="5000">
+                </div>
+                <div>
+                    <label for="skala">Skala wizualizacji:</label>
+                    <input type="number" id="skala" value="0.06" step="0.02">
+                </div>
+                <div>
+                    <label for="minSzerOdpadu">Min. szer. odpadu (mm):</label>
+                    <input type="number" id="minSzerOdpadu" value="600">
+                </div>
+                <div>
+                    <label for="minWysOdpadu">Min. wys. odpadu (mm):</label>
+                    <input type="number" id="minWysOdpadu" value="1000">
+                </div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>Dodaj Komponent do Cięcia</h2>
+            <div class="grid-dane">
+                <div>
+                    <label for="komponentId">ID Komponentu:</label>
+                    <input type="text" id="komponentId" readonly>
+                </div>
+                <div>
+                    <label for="szerKomponentu">Szerokość (mm):</label>
+                    <input type="number" id="szerKomponentu" placeholder="np. 600">
+                </div>
+                <div>
+                    <label for="wysKomponentu">Wysokość (mm):</label>
+                    <input type="number" id="wysKomponentu" placeholder="np. 400">
+                </div>
+                <div>
+                    <label for="nowyIlosc">Ilość:</label>
+                    <input type="number" id="nowyIlosc" value="1">
+                </div>
+                <div>
+                    <button onclick="dodajElement()">Dodaj do listy</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>Ładuj Komponenty z Pliku Excel</h2>
+            <div class="grid-dane" style="grid-template-columns: 1fr auto auto;">
+                <div>
+                    <label for="excelFileInput">Wybierz plik Excel (.xlsx):</label>
+                    <input type="file" id="excelFileInput" accept=".xlsx" onchange="zaladujExcel(event)">
+                </div>
+                <button onclick="document.getElementById('excelFileInput').click()">Wczytaj plik</button>
+                <button onclick="uruchomOptymalizacje()">Uruchom Optymalizację</button>
+            </div>
+            <p style="margin-top: 10px; font-size: 0.9em; color: #555;">
+                Plik Excel powinien zawierać kolumny: **ID**, **Szerokość (mm)**, **Wysokość (mm)**, **Ilość**.
+                Nagłówki kolumn są wymagane. Dane zaczną się od pierwszego wiersza po nagłówkach.
+            </p>
+        </div>
+
+        <details class="panel" open>
+            <summary>
+                <h2>Lista Elementów do Optymalizacji</h2>
+            </summary>
+
+            <table id="tabelaElementow">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Szerokość</th>
+                        <th>Wysokość</th>
+                        <th>Ilość</th>
+                        <th>Obrót?</th>
+                        <th>Klejony?</th>
+                        <th>Akcje</th>
+                    </tr>
+                </thead>
+                <tbody>
+                </tbody>
+            </table>
+
+            <button onclick="uruchomOptymalizacje()" class="run-button">Uruchom Optymalizację</button>
+        </details>
+
+        <div class="panel">
+            <h2>Wynik Optymalizacji</h2>
+            <div id="podsumowanie"></div>
+            <div class="canvas-wrapper" id="canvasWrapper">
+                <button onclick="generujPDF()" style="background-color: #f39c12; margin-bottom: 15px;">Drukuj do PDF</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="materials.js"></script>
+    <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script>
+        let listaElementowDoCiecia = [];
+        let nextId = 1;
+        const MARGINES_BOCZNY = 20;
+        const MIN_SZEROKOSC_KLEJENIA = 50; // Minimalna szerokość, którą warto "kleić" (unikamy bardzo małych pasków)
+
+        window.onload = function() {
+            const selectRolka = document.getElementById('wyborMaterialuRolki');
+
+            // Populate material selection from materials.js (assuming it exists)
+            if (typeof bazaMaterialow !== 'undefined') {
+                for (const nazwa in bazaMaterialow) {
+                    const optionRolka = document.createElement('option');
+                    optionRolka.value = nazwa;
+                    optionRolka.textContent = nazwa;
+                    selectRolka.appendChild(optionRolka);
+                }
+            } else {
+                console.warn("bazaMaterialow not found. Ensure materials.js is loaded correctly.");
+            }
+
+            if (Object.keys(bazaMaterialow).length > 0) {
+                zaktualizujDaneRolki();
+            }
+            aktualizujKomponentId();
+        };
+
+        function zaktualizujDaneRolki() {
+            const nazwaMaterialuRolki = document.getElementById('wyborMaterialuRolki').value;
+            const material = bazaMaterialow[nazwaMaterialuRolki];
+            if (material) {
+                document.getElementById('szerRolki').value = material.szerRolkiDomyslna;
+                document.getElementById('dlRolki').value = material.dlRolkiDomyslna;
+            }
+        }
+
+        function aktualizujKomponentId() {
+            document.getElementById('komponentId').value = nextId;
+        }
+
+        /**
+         * Dodaje pojedynczy element do listy cięcia.
+         * Obsługuje również logikę "klejenia" (podziału) elementów zbyt szerokich na rolkę.
+         * @param {number} szer Szerokość elementu.
+         * @param {number} wys Wysokość elementu.
+         * @param {number} ilosc Ilość elementów.
+         * @param {boolean} isSubElement Czy jest to pod-element powstały z klejenia.
+         * @param {number|null} parentId ID oryginalnego elementu, jeśli to pod-element.
+         * @param {number|null} originalSzer Oryginalna szerokość przed podziałem.
+         * @param {number|null} originalWys Oryginalna wysokość przed podziałem.
+         * @param {number|null} initialId Opcjonalne ID z Excela, jeśli dostępne.
+         * @returns {boolean} True jeśli element został dodany/obsłużony, false w przypadku błędu.
+         */
+        function dodajPojedynczyElement(szer, wys, ilosc, isSubElement = false, parentId = null, originalSzer = szer, originalWys = wys, initialId = null) {
+            const szerRolki = parseFloat(document.getElementById('szerRolki').value);
+            const dostepnaSzerokoscRolki = szerRolki - (2 * MARGINES_BOCZNY);
+
+            if (isNaN(szer) || isNaN(wys) || isNaN(ilosc) || szer <= 0 || wys <= 0 || ilosc <= 0) {
+                console.warn(`Pominięto element z nieprawidłowymi danymi: Szerokość=${szer}, Wysokość=${wys}, Ilość=${ilosc}`);
+                return false;
+            }
+
+            let szerDoUlozenia = szer;
+            let wysDoUlozenia = wys;
+            let obrot = 'NIE';
+            let klejony = 'NIE';
+
+            let currentElementId = initialId !== null ? initialId : nextId;
+
+            // Sprawdzenie, czy element wymaga klejenia (jeśli jest to element główny, nie pod-element)
+            if (!isSubElement && szer > dostepnaSzerokoscRolki) {
+                // Spróbuj obrócić, jeśli po obrocie szerokość (oryginalna wysokość) zmieści się
+                if (wys <= dostepnaSzerokoscRolki) {
+                    szerDoUlozenia = wys;
+                    wysDoUlozenia = szer;
+                    obrot = 'TAK';
+                    // Po obrocie, element mieści się, więc nie wymaga klejenia
+                } else {
+                    // Element jest zbyt szeroki nawet po obrocie, wymaga klejenia
+                    klejony = 'TAK'; // Ustawiamy flagę dla pierwotnego element
+
+                    // Dzielimy element na kawałki
+                    const szerokoscPozostala = szer - dostepnaSzerokoscRolki;
+
+                    const szerPierwszejCzesci = dostepnaSzerokoscRolki;
+                    const wysPierwszejCzesci = wys;
+
+                    const szerDrugiejCzesci = szerokoscPozostala;
+                    const wysDrugiejCzesci = wys;
+
+                    // Jeśli druga część jest zbyt mała, żeby ją sensownie kleić
+                    if (szerDrugiejCzesci < MIN_SZEROKOSC_KLEJENIA) {
+                        alert(`Element ${szer}x${wys} mm jest zbyt szeroki (${szer}mm > ${dostepnaSzerokoscRolki}mm) i jego druga część do klejenia byłaby mniejsza niż ${MIN_SZEROKOSC_KLEJENIA}mm (${szerDrugiejCzesci.toFixed(0)}mm). Element zostanie przycięty do ${dostepnaSzerokoscRolki}mm.`);
+
+                        listaElementowDoCiecia.push({
+                            id: currentElementId, // Używamy tego samego ID dla przyciętej wersji, bo to jest "oryginał"
+                            nazwa: `ID:${currentElementId} (${szer}x${wys}) - Część 1 (przyc.)`,
+                            szer: szerPierwszejCzesci,
+                            wys: wysPierwszejCzesci,
+                            ilosc: ilosc,
+                            obrot: 'NIE',
+                            klejony: 'PRZYCIĘTY',
+                            parentId: currentElementId, // This element itself is the parent of its "trimmed" state
+                            originalSzer: originalSzer,
+                            originalWys: originalWys
+                        });
+                        //nextId++; // Nie zwiększamy nextId, bo używamy initialId/currentElementId
+                        return true; // Handled by trimming
+                    }
+
+                    // Rekurencyjnie dodajemy części jako pod-elementy.
+                    // Ważne: initialId jest przekazywane tylko do pierwszego wywołania dodajPojedynczyElement
+                    // Dla pod-elementów ID są zawsze generowane automatycznie, a parentId to ID oryginalnego elementu.
+                    dodajPojedynczyElement(szerPierwszejCzesci, wysPierwszejCzesci, ilosc, true, currentElementId, originalSzer, originalWys, null);
+                    dodajPojedynczyElement(szerDrugiejCzesci, wysDrugiejCzesci, ilosc, true, currentElementId, originalSzer, originalWys, null);
+
+                    return true; // Obsłużono poprzez podział
+                }
+            } else if (!isSubElement && szer > dostepnaSzerokoscRolki && wys > dostepnaSzerokoscRolki) {
+                alert(`Element o wymiarach ${szer}x${wys} mm nie może być ułożony na rolce o szerokości ${szerRolki} mm (dostępna przestrzeń to ${dostepnaSzerokoscRolki} mm po odjęciu marginesów), nawet po obrocie. Pominięto ten element.`);
+                return false;
+            }
+
+            // Standardowe dodawanie elementu
+            // Jeśli element jest pod-elementem (isSubElement === true), zawsze używamy nextId i zwiększamy je.
+            // Jeśli nie jest pod-elementem i mieliśmy initialId (z Excela), używamy go.
+            // W przeciwnym razie używamy nextId i zwiększamy je.
+            let finalId;
+            if (isSubElement) {
+                finalId = nextId;
+                nextId++; // Zawsze zwiększamy dla generowanych ID
+            } else {
+                finalId = currentElementId;
+                if (initialId === null) { // Tylko jeśli ID nie przyszło z Excela, zwiększamy nextId
+                    nextId++;
+                }
+            }
+
+
+            const nazwaDoListy = `ID:${finalId} (${szer}x${wys})` + (isSubElement ? ` (Klejenie: ${originalSzer}x${originalWys})` : '');
+
+            listaElementowDoCiecia.push({
+                id: finalId,
+                nazwa: nazwaDoListy,
+                szer: szerDoUlozenia,
+                wys: wysDoUlozenia,
+                ilosc: ilosc,
+                obrot: obrot,
+                klejony: klejony,
+                parentId: parentId,
+                originalSzer: originalSzer,
+                originalWys: originalWys
+            });
+            return true;
+        }
+
+        function dodajElement() {
+            const szer = parseFloat(document.getElementById('szerKomponentu').value);
+            const wys = parseFloat(document.getElementById('wysKomponentu').value);
+            const ilosc = parseInt(document.getElementById('nowyIlosc').value);
+
+            // Przy dodawaniu ręcznym, wywołujemy bez parentId i isSubElement, i bez initialId
+            if(dodajPojedynczyElement(szer, wys, ilosc, false, null, szer, wys, null)) {
+                aktualizujTabele();
+                document.getElementById('szerKomponentu').value = '';
+                document.getElementById('wysKomponentu').value = '';
+                document.getElementById('nowyIlosc').value = '1';
+                aktualizujKomponentId();
+                document.getElementById('szerKomponentu').focus();
+            }
+        }
+
+        function zaladujExcel(event) {
+            const file = event.target.files[0];
+            if (!file) {
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+
+                const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+                if (jsonData.length < 2) {
+                    alert("Plik Excel jest pusty lub zawiera tylko nagłówki.");
+                    return;
+                }
+
+                const headers = jsonData[0].map(h => String(h).trim());
+                const idColIndex = headers.indexOf('ID'); // Now look for 'ID' column
+                const szerokoscColIndex = headers.indexOf('Szerokość (mm)');
+                const wysokoscColIndex = headers.indexOf('Wysokość (mm)');
+                const iloscColIndex = headers.indexOf('Ilość');
+
+                if (szerokoscColIndex === -1 || wysokoscColIndex === -1 || iloscColIndex === -1) {
+                    alert("Błąd: Plik Excel musi zawierać kolumny z nagłówkami: 'Szerokość (mm)', 'Wysokość (mm)', 'Ilość'. Kolumna 'ID' jest opcjonalna. Sprawdź wielkość liter i pisownię.");
+                    return;
+                }
+
+                let elementsAddedCount = 0;
+                let maxIdFromExcel = 0;
+
+                // IMPORTANT: Clear existing list and reset ID counter before loading from Excel
+                listaElementowDoCiecia = [];
+                nextId = 1;
+
+                for (let i = 1; i < jsonData.length; i++) {
+                    const row = jsonData[i];
+                    const idFromExcel = (idColIndex !== -1 && row[idColIndex] !== undefined && row[idColIndex] !== null) ? parseInt(row[idColIndex]) : null;
+                    const szer = parseFloat(row[szerokoscColIndex]);
+                    const wys = parseFloat(row[wysokoscColIndex]);
+                    const ilosc = parseInt(row[iloscColIndex]);
+
+                    // Pass ID from Excel if available, otherwise pass null so dodajPojedynczyElement generates one
+                    if (dodajPojedynczyElement(szer, wys, ilosc, false, null, szer, wys, idFromExcel)) {
+                        elementsAddedCount++;
+                        if (idFromExcel !== null && !isNaN(idFromExcel) && idFromExcel > maxIdFromExcel) {
+                            maxIdFromExcel = idFromExcel;
+                        }
+                    }
+                }
+
+                // Update nextId to be greater than any ID found in Excel, or 1 if no IDs were valid/found
+                nextId = Math.max(nextId, maxIdFromExcel + 1);
+
+
+                aktualizujTabele();
+                aktualizujKomponentId();
+                alert(`Wczytano ${elementsAddedCount} elementów z pliku Excel.`);
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function usunElement(id) {
+            listaElementowDoCiecia = listaElementowDoCiecia.filter(item => item.id !== id);
+            aktualizujTabele();
+        }
+
+        function aktualizujTabele() {
+            const tbody = document.getElementById('tabelaElementow').getElementsByTagName('tbody')[0];
+            tbody.innerHTML = '';
+
+            listaElementowDoCiecia.forEach(item => {
+                const row = tbody.insertRow();
+                const idCell = row.insertCell(0);
+                idCell.innerText = item.id + (item.parentId && item.parentId !== item.id ? ` (część elem. ${item.parentId})` : '');
+                row.insertCell(1).innerText = item.szer;
+                row.insertCell(2).innerText = item.wys;
+                row.insertCell(3).innerText = item.ilosc;
+                row.insertCell(4).innerText = item.obrot;
+                const klejonyCell = row.insertCell(5);
+                klejonyCell.innerText = item.klejony || 'NIE';
+
+                const deleteCell = row.insertCell(6);
+                const deleteButton = document.createElement('button');
+                deleteButton.innerText = 'Usuń';
+                deleteButton.style.backgroundColor = '#e74c3c';
+                deleteButton.style.padding = '5px 10px';
+                deleteButton.style.height = 'auto';
+                deleteButton.onclick = () => usunElement(item.id);
+                deleteCell.appendChild(deleteButton);
+            });
+        }
+
+        function uruchomOptymalizacje() {
+            const szerRolki = parseFloat(document.getElementById('szerRolki').value);
+            const dlRolki = parseFloat(document.getElementById('dlRolki').value);
+            const skala = parseFloat(document.getElementById('skala').value) || 0.05;
+            const minSzerOdpadu = parseFloat(document.getElementById('minSzerOdpadu').value);
+            const minWysOdpadu = parseFloat(document.getElementById('minWysOdpadu').value);
+
+            const szerokoscUkladania = szerRolki - (2 * MARGINES_BOCZNY);
+
+            if (listaElementowDoCiecia.length === 0) {
+                alert("Lista elementów jest pusta. Dodaj przynajmniej jeden element.");
+                return;
+            }
+
+            let elementyDoPakowania = [];
+            let totalRequestedElements = 0;
+            let totalRequestedArea = 0;
+
+            // Musimy "rozwinąć" listę, bo każdy item.ilosc oznacza osobną sztukę
+            listaElementowDoCiecia.forEach(item => {
+                totalRequestedElements += item.ilosc;
+                totalRequestedArea += item.szer * item.wys * item.ilosc;
+
+                for (let i = 0; i < item.ilosc; i++) {
+                    elementyDoPakowania.push({
+                        id: `${item.id}-${i+1}`,
+                        nazwa: item.nazwa,
+                        szer: item.szer,
+                        wys: item.wys,
+                        pole: item.szer * item.wys,
+                        obrot: item.obrot,
+                        klejony: item.klejony,
+                        parentId: item.parentId,
+                        originalSzer: item.originalSzer,
+                        originalWys: item.originalWys
+                    });
+                }
+            });
+
+            // Sortujemy elementy do pakowania.
+            // Preferujemy elementy, które zostały PRZYCIĘTE (bo są "problemowe")
+            // Następnie elementy, które są częściami KLEJONYMI
+            // W dalszej kolejności sortujemy po wymiarze wzdłuż długości rolki (wys) malejąco (Largest-First strategy)
+            elementyDoPakowania.sort((a, b) => {
+                if (a.klejony === 'PRZYCIĘTY' && b.klejony !== 'PRZYCIĘTY') return -1;
+                if (a.klejony !== 'PRZYCIĘTY' && b.klejony === 'PRZYCIĘTY') return 1;
+
+                if (a.klejony === 'TAK' && b.klejony !== 'TAK') return -1;
+                if (a.klejony !== 'TAK' && b.klejony === 'TAK') return 1;
+
+                return b.wys - a.wys;
+            });
+
+
+            let belki = [];
+            const marginesWewnetrzny = 1;
+            const przesuniecieMiedzyBelkami = 20;
+
+            belki.push({
+                szer: szerRolki, dl: dlRolki,
+                leftPos: 0,
+                topPos: 0,
+                elementy: [],
+                rzedy: [{ startX: 0, currentY: 0, maxXinRow: 0 }]
+            });
+
+            let placedElementsCount = 0;
+            for (const e of elementyDoPakowania) {
+                let ustawiono = false;
+                for (let i = 0; i < belki.length; i++) {
+                    const b = belki[i];
+                    for (let j = 0; j < b.rzedy.length; j++) {
+                        const rzad = b.rzedy[j];
+
+                        // Check if element fits in current row (width wise) and doesn't exceed beam length
+                        if (rzad.currentY + e.szer + marginesWewnetrzny <= szerokoscUkladania &&
+                            (rzad.startX + e.wys <= b.dl)
+                            ) {
+                            e.posX = rzad.startX;       // Element X position
+                            e.posY = MARGINES_BOCZNY + rzad.currentY; // Element Y position, accounting for top margin
+
+                            rzad.currentY += e.szer + marginesWewnetrzny;
+                            if (e.wys > rzad.maxXinRow) {
+                                rzad.maxXinRow = e.wys;
+                            }
+                            b.elementy.push(e);
+                            ustawiono = true;
+                            placedElementsCount++;
+                            break;
+                        }
+                    }
+                    if (ustawiono) break;
+
+                    // Try to start a new row if element doesn't fit in current rows' width
+                    // Calculate the total length occupied by current rows in this beam
+                    let szerokoscZajetaPrzezRzedy = 0;
+                    if (b.rzedy.length > 0) {
+                        szerokoscZajetaPrzezRzedy = b.rzedy.reduce((sum, r) => sum + r.maxXinRow + marginesWewnetrzny, 0);
+                        szerokoscZajetaPrzezRzedy -= marginesWewnetrzny; // Subtract last internal margin
+                    }
+
+                    // Check if a new row for the element fits within the beam's length
+                    if (szerokoscZajetaPrzezRzedy + e.wys + (b.rzedy.length > 0 ? marginesWewnetrzny : 0) <= b.dl) {
+                        const nowyRzad = {
+                            startX: szerokoscZajetaPrzezRzedy + (b.rzedy.length > 0 ? marginesWewnetrzny : 0),
+                            currentY: e.szer + marginesWewnetrzny,
+                            maxXinRow: e.wys
+                        };
+                        b.rzedy.push(nowyRzad);
+                        e.posX = nowyRzad.startX;
+                        e.posY = MARGINES_BOCZNY;
+                        b.elementy.push(e);
+                        ustawiono = true;
+                        placedElementsCount++;
+                        break;
+                    }
+                }
+                // If element couldn't be placed in any existing beam, create a new beam
+                if (!ustawiono) {
+                    const ostatniaBelka = belki[belki.length - 1];
+                    const newLeftPos = 0;
+                    // topPos for internal logic, not for drawing
+                    const newTopPos = ostatniaBelka.topPos + ostatniaBelka.szer + przesuniecieMiedzyBelkami;
+
+                    const nowaBelka = {
+                        szer: szerRolki, dl: dlRolki,
+                        leftPos: newLeftPos,
+                        topPos: newTopPos,
+                        elementy: [], rzedy: []
+                    };
+                    const nowyRzad = { startX: 0, currentY: e.szer + marginesWewnetrzny, maxXinRow: e.wys };
+                    nowaBelka.rzedy.push(nowyRzad);
+                    e.posX = 0;
+                    e.posY = MARGINES_BOCZNY;
+                    nowaBelka.elementy.push(e);
+                    belki.push(nowaBelka);
+                    placedElementsCount++;
+                }
+            }
+
+            const canvasWrapper = document.getElementById('canvasWrapper');
+            canvasWrapper.innerHTML = `<button onclick="generujPDF()" style="background-color: #f39c12; margin-bottom: 15px;">Drukuj do PDF</button>`;
+
+            const rysujProstokat = (ctx, x, y, szer, wys, kolorWypelnienia, kolorLinii = 'black') => {
+                ctx.fillStyle = kolorWypelnienia;
+                ctx.strokeStyle = kolorLinii;
+                ctx.fillRect(x, y, szer, wys);
+                ctx.strokeRect(x, y, szer, wys);
+            };
+
+            const rysujTekst = (ctx, tekst, x, y, szer, wys, kolor = 'black', rozmiar = 20) => {
+                ctx.fillStyle = kolor;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                let aktualnyRozmiar = rozmiar;
+                ctx.font = `${aktualnyRozmiar}px sans-serif`;
+                const lines = tekst.split('\n');
+                let maxLineWidth = 0;
+                for(const line of lines) {
+                    if (ctx.measureText(line).width > maxLineWidth) {
+                        maxLineWidth = ctx.measureText(line).width;
+                    }
+                }
+                while (maxLineWidth > szer - 4 && aktualnyRozmiar > 6) {
+                    aktualnyRozmiar -= 0.5;
+                    ctx.font = `${aktualnyRozmiar}px sans-serif`;
+                    maxLineWidth = 0;
+                    for(const line of lines) {
+                        if (ctx.measureText(line).width > maxLineWidth) {
+                            maxLineWidth = ctx.measureText(line).width;
+                        }
+                    }
+                }
+                const odstep = aktualnyRozmiar * 1.1;
+                const startY = y + wys / 2 - (lines.length - 1) * odstep / 2;
+                lines.forEach((linia, i) => ctx.fillText(linia, x + szer / 2, startY + i * odstep));
+            };
+
+            let sumaOdpadkow = 0;
+            let sumaZuzyciaPowierzchnia = 0;
+            let sumaZuzyciaMetryBiezace = 0;
+            let totalBeamArea = 0; // Total area of all beams used
+
+            belki.forEach((b, index) => {
+                const beamContainer = document.createElement('div');
+                beamContainer.className = 'beam-container';
+                beamContainer.id = `beamContainer-${index}`;
+
+                const beamTitle = document.createElement('h3');
+                beamTitle.textContent = `Belka ${index + 1}`;
+                beamContainer.appendChild(beamTitle);
+
+                const canvas = document.createElement('canvas');
+                canvas.id = `canvasBeam-${index}`;
+                beamContainer.appendChild(canvas);
+                canvasWrapper.appendChild(beamContainer);
+
+                const ctx = canvas.getContext('2d');
+
+                let maxUsedLength = 0; // Max length used on this beam
+                b.elementy.forEach(e => {
+                    maxUsedLength = Math.max(maxUsedLength, e.posX + e.wys);
+                    sumaZuzyciaPowierzchnia += e.pole;
+                });
+
+                sumaZuzyciaMetryBiezace += maxUsedLength;
+                totalBeamArea += b.szer * maxUsedLength; // Only consider the used length of the beam for total area
+
+                const padding = 30;
+                canvas.width = (b.dl * skala) + padding * 2;
+                canvas.height = (b.szer * skala) + padding * 2;
+
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                // Draw the full beam area, lightly
+                rysujProstokat(ctx, padding, padding, b.dl * skala, b.szer * skala, 'rgba(200, 200, 200, 0.2)');
+
+                b.elementy.forEach(e => {
+                    let kolorWypelnienia = '#90ee90'; // Domyślny zielony
+                    let dodatkowyTekst = '';
+
+                    if (e.klejony === 'TAK') {
+                        kolorWypelnienia = '#add8e6'; // Jasnoniebieski dla klejonych części
+                        dodatkowyTekst = `\n(Klejenie z ${e.originalSzer}x${e.originalWys}mm)`;
+                    } else if (e.klejony === 'PRZYCIĘTY') {
+                        kolorWypelnienia = '#ffb3ba'; // Jasnoczerwony dla przyciętych części
+                        dodatkowyTekst = `\n(Przycięty z ${e.originalSzer}x${e.originalWys}mm)`;
+                    }
+
+                    rysujProstokat(ctx, padding + e.posX * skala, padding + e.posY * skala, e.wys * skala, e.szer * skala, kolorWypelnienia);
+                    let tekstDoWyswietlenia = `ID:${e.id}\n${e.szer}x${e.wys}`;
+                    if (e.obrot === 'TAK') {
+                        tekstDoWyswietlenia += '\n(Obrócony)';
+                    }
+                    tekstDoWyswietlenia += dodatkowyTekst;
+                    rysujTekst(ctx, tekstDoWyswietlenia, padding + e.posX * skala, padding + e.posY * skala, e.wys * skala, e.szer * skala, 'black', 9);
+                });
+
+                // Rysuj obszary odpadów
+                // Top margin waste
+                const szerGornyMargines = b.dl;
+                const wysGornyMargines = MARGINES_BOCZNY;
+                if (szerGornyMargines >= minWysOdpadu && wysGornyMargines >= minSzerOdpadu) {
+                    rysujProstokat(ctx, padding, padding, szerGornyMargines * skala, wysGornyMargines * skala, 'rgba(255, 100, 100, 0.7)');
+                    rysujTekst(ctx, `Odpad:\n${wysGornyMargines}x${szerGornyMargines}mm`, padding, padding, szerGornyMargines * skala, wysGornyMargines * skala, 'black', 8);
+                    sumaOdpadkow += szerGornyMargines * wysGornyMargines;
+                }
+
+                // Bottom margin waste
+                const szerDolnyMargines = b.dl;
+                const wysDolnyMargines = MARGINES_BOCZNY;
+                if (szerDolnyMargines >= minWysOdpadu && wysDolnyMargines >= minSzerOdpadu) {
+                    rysujProstokat(ctx, padding, padding + (b.szer - wysDolnyMargines) * skala, szerDolnyMargines * skala, wysDolnyMargines * skala, 'rgba(255, 100, 100, 0.7)');
+                    rysujTekst(ctx, `Odpad:\n${wysDolnyMargines}x${szerDolnyMargines}mm`, padding, padding + (b.szer - wysDolnyMargines) * skala, szerDolnyMargines * skala, wysDolnyMargines * skala, 'black', 8);
+                    sumaOdpadkow += szerDolnyMargines * wysDolnyMargines;
+                }
+
+                let currentXForWaste = 0;
+                b.rzedy.forEach(rzad => {
+                    const dlUzytaWRzedzie = rzad.maxXinRow;
+                    const odpWysWRzedzie = szerokoscUkladania - rzad.currentY + marginesWewnetrzny;
+                    const odpSzerWRzedzie = dlUzytaWRzedzie;
+
+                    // Waste within rows (vertical gaps between elements in a row)
+                    if (odpWysWRzedzie > 1 && odpWysWRzedzie >= minSzerOdpadu && odpSzerWRzedzie >= minWysOdpadu) {
+                        const odpadX = padding + rzad.startX * skala;
+                        const odpadY = padding + (MARGINES_BOCZNY + rzad.currentY - marginesWewnetrzny) * skala;
+                        const odpadSzer_scaled = odpSzerWRzedzie * skala;
+                        const odpadWys_scaled = odpWysWRzedzie * skala;
+
+                        rysujProstokat(ctx, odpadX, odpadY, odpadSzer_scaled, odpadWys_scaled, 'rgba(255, 150, 150, 0.7)');
+                        rysujTekst(ctx, `Odpad:\n${odpWysWRzedzie.toFixed(0)}x${odpSzerWRzedzie.toFixed(0)}mm`, odpadX, odpadY, odpadSzer_scaled, odpadWys_scaled, 'black', 8);
+                        sumaOdpadkow += odpSzerWRzedzie * odpWysWRzedzie;
+                    }
+                    currentXForWaste = Math.max(currentXForWaste, rzad.startX + rzad.maxXinRow);
+                });
+
+                // Remaining horizontal waste after all rows (if any)
+                const odpadPoElementachSzer = b.dl - maxUsedLength;
+                const odpadPoElementachWys = szerokoscUkladania; // Full width of the usable area
+                if (odpadPoElementachSzer > 1 && odpadPoElementachSzer >= minWysOdpadu && odpadPoElementachWys >= minSzerOdpadu) {
+                    const odpadX = padding + maxUsedLength * skala;
+                    const odpadY = padding + MARGINES_BOCZNY * skala;
+                    const odpadSzer_scaled = odpadPoElementachSzer * skala;
+                    const odpadWys_scaled = odpadPoElementachWys * skala;
+
+                    rysujProstokat(ctx, odpadX, odpadY, odpadSzer_scaled, odpadWys_scaled, 'rgba(255, 150, 150, 0.7)');
+                    rysujTekst(ctx, `Odpad:\n${odpadPoElementachWys.toFixed(0)}x${odpadPoElementachSzer.toFixed(0)}mm`, odpadX, odpadY, odpadSzer_scaled, odpadWys_scaled, 'black', 8);
+                    sumaOdpadkow += odpadPoElementachSzer * odpadPoElementachWys;
+                }
+            });
+
+            // Display summary
+            const podsumowanieDiv = document.getElementById('podsumowanie');
+            podsumowanieDiv.innerHTML = `
+                <h3>Podsumowanie Optymalizacji</h3>
+                <p><strong>Liczba użytych belek:</strong> ${belki.length}</p>
+
+                <p><strong>Liczba wymaganych elementów:</strong> ${totalRequestedElements}</p>
+                <p><strong>Liczba ułożonych elementów:</strong> ${placedElementsCount}</p>
+                <p><strong>Całkowita powierzchnia ułożonych elementów:</strong> ${(sumaZuzyciaPowierzchnia / 1000000).toFixed(2)} m²</p>
+                <p><strong>Całkowita powierzchnia odpadów (użyteczne):</strong> ${(sumaOdpadkow / 1000000).toFixed(2)} m²</p>
+
+                <p><strong>Całkowita powierzchnia użytych belek:</strong> ${(totalBeamArea / 1000000).toFixed(2)} m²</p>
+                <p><strong>Wydajność cięcia:</strong> ${((sumaZuzyciaPowierzchnia / totalBeamArea) * 100).toFixed(2)}%</p>
+
+                <p>
+                    <strong>Elementy wymagające klejenia:</strong>
+                    ${listaElementowDoCiecia.filter(item => item.klejony === 'TAK').length} sztuk
+                </p>
+                 <p>
+                    <strong>Elementy przycięte:</strong>
+                    ${listaElementowDoCiecia.filter(item => item.klejony === 'PRZYCIĘTY').length} sztuk
+                </p>
+            `;
+        }
+
+        async function generujPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF('p', 'mm', 'a4');
+            const margin = 10;
+            let currentY = margin;
+            const pageHeight = doc.internal.pageSize.height;
+
+            const addPageHeader = () => {
+                doc.setFontSize(16);
+                doc.text('Optymalizator Cięcia 2D - Raport', margin, currentY);
+                currentY += 10;
+                doc.setFontSize(10);
+                doc.text(`Generowano: ${new Date().toLocaleString()}`, margin, currentY);
+                currentY += 10;
+                doc.line(margin, currentY, doc.internal.pageSize.width - margin, currentY); // Horizontal line
+                currentY += 10;
+            };
+
+            addPageHeader();
+
+            // Add summary data
+            const podsumowanieHtml = document.getElementById('podsumowanie').innerHTML;
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = podsumowanieHtml;
+            document.body.appendChild(tempDiv); // Temporarily add to DOM for html2canvas
+
+            try {
+                const canvasSummary = await html2canvas(tempDiv, { scale: 2 });
+                const imgDataSummary = canvasSummary.toDataURL('image/png');
+                const imgWidthSummary = doc.internal.pageSize.width - (2 * margin);
+                const imgHeightSummary = canvasSummary.height * imgWidthSummary / canvasSummary.width;
+
+                if (currentY + imgHeightSummary + margin > pageHeight) {
+                    doc.addPage();
+                    currentY = margin;
+                    addPageHeader();
+                }
+                doc.addImage(imgDataSummary, 'PNG', margin, currentY, imgWidthSummary, imgHeightSummary);
+                currentY += imgHeightSummary + 10;
+            } catch (error) {
+                console.error("Error generating summary image:", error);
+            } finally {
+                document.body.removeChild(tempDiv);
+            }
+
+
+            const beamContainers = document.querySelectorAll('.beam-container');
+            for (let i = 0; i < beamContainers.length; i++) {
+                const container = beamContainers[i];
+                // Check if current content + next beam will fit on current page
+                const estimatedHeight = container.offsetHeight * (doc.internal.pageSize.width - (2 * margin)) / container.offsetWidth; // Rough estimate
+                if (currentY + estimatedHeight + margin > pageHeight) {
+                    doc.addPage();
+                    currentY = margin;
+                    addPageHeader();
+                }
+
+                // Render each beam container as an image
+                const canvas = await html2canvas(container, { scale: 2 });
+                const imgData = canvas.toDataURL('image/png');
+                const imgWidth = doc.internal.pageSize.width - (2 * margin);
+                const imgHeight = canvas.height * imgWidth / canvas.width;
+
+                doc.addImage(imgData, 'PNG', margin, currentY, imgWidth, imgHeight);
+                currentY += imgHeight + 10; // Add some spacing
+            }
+
+            doc.save('raport_ciecia_2d.pdf');
+        }
+    </script>
+</body>
+</html>

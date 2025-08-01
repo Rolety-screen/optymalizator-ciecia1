@@ -119,7 +119,7 @@
                 <button onclick="uruchomOptymalizacje()">Uruchom Optymalizację</button>
             </div>
             <p style="margin-top: 10px; font-size: 0.9em; color: #555;">
-                Plik Excel powinien zawierać kolumny: Szerokość (mm) , Wysokość (mm) , Ilość .
+                Plik Excel powinien zawierać kolumny: Szerokość (mm), Wysokość (mm), Ilość.
                 Nagłówki kolumn są wymagane. Dane zaczną się od pierwszego wiersza po nagłówkach.
             </p>
         </div>
@@ -658,139 +658,149 @@ if (wymaganaSzerokosc <= szerokoscUkladania &&
             let sumaZuzyciaPowierzchnia = 0;
             let sumaZuzyciaMetryBiezace = 0;
             let totalBeamArea = 0; // Total area of all beams used
+belki.forEach((b, index) => {
+    const beamContainer = document.createElement('div');
+    beamContainer.className = 'beam-container';
+    beamContainer.id = `beamContainer-${index}`;
 
-            belki.forEach((b, index) => {
-                const beamContainer = document.createElement('div');
-                beamContainer.className = 'beam-container';
-                beamContainer.id = `beamContainer-${index}`;
+    const beamTitle = document.createElement('h3');
+    beamTitle.textContent = `Belka ${index + 1}`;
+    beamContainer.appendChild(beamTitle);
 
-                const beamTitle = document.createElement('h3');
-                beamTitle.textContent = `Belka ${index + 1}`;
-                beamContainer.appendChild(beamTitle);
+    const canvas = document.createElement('canvas');
+    canvas.id = `canvasBeam-${index}`;
+    beamContainer.appendChild(canvas);
+    canvasWrapper.appendChild(beamContainer);
 
-                const canvas = document.createElement('canvas');
-                canvas.id = `canvasBeam-${index}`;
-                beamContainer.appendChild(canvas);
-                canvasWrapper.appendChild(beamContainer);
+    const ctx = canvas.getContext('2d');
 
-                const ctx = canvas.getContext('2d');
+    let maxUsedLength = 0; // Max length used on this beam
+    b.elementy.forEach(e => {
+        maxUsedLength = Math.max(maxUsedLength, e.posX + e.wys);
+        sumaZuzyciaPowierzchnia += e.pole;
+    });
 
-                let maxUsedLength = 0; // Max length used on this beam
-                b.elementy.forEach(e => {
-                    maxUsedLength = Math.max(maxUsedLength, e.posX + e.wys);
-                    sumaZuzyciaPowierzchnia += e.pole;
-                });
+    // Zmieniona logika obliczania zużycia materiału
+    totalBeamArea += b.szer * maxUsedLength; // Obliczamy pole tylko na podstawie użytej długości
 
-                sumaZuzyciaMetryBiezace += maxUsedLength;
-                totalBeamArea += b.szer * maxUsedLength; // Only consider the used length of the beam for total area
+    const padding = 30;
+    canvas.width = (b.dl * skala) + padding * 2;
+    canvas.height = (b.szer * skala) + padding * 2;
 
-                const padding = 30;
-                canvas.width = (b.dl * skala) + padding * 2;
-                canvas.height = (b.szer * skala) + padding * 2;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // Draw the full beam area, lightly
+    rysujProstokat(ctx, padding, padding, b.dl * skala, b.szer * skala, 'rgba(200, 200, 200, 0.2)');
 
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                // Draw the full beam area, lightly
-                rysujProstokat(ctx, padding, padding, b.dl * skala, b.szer * skala, 'rgba(200, 200, 200, 0.2)');
+    b.elementy.forEach(e => {
+        let kolorWypelnienia = '#90ee90'; // Domyślny zielony
+        let dodatkowyTekst = '';
 
-                b.elementy.forEach(e => {
-                    let kolorWypelnienia = '#90ee90'; // Domyślny zielony
-                    let dodatkowyTekst = '';
-
-                    if (e.klejony === 'TAK') {
-                        kolorWypelnienia = '#add8e6'; // Jasnoniebieski dla klejonych części
-                        dodatkowyTekst = `\n(Klejenie z ${e.originalSzer}x${e.originalWys}mm)`;
-                    } else if (e.klejony === 'PRZYCIĘTY') {
-                        kolorWypelnienia = '#ffb3ba'; // Jasnoczerwony dla przyciętych części
-                        dodatkowyTekst = `\n(Przycięty z ${e.originalSzer}x${e.originalWys}mm)`;
-                    }
-
-                    rysujProstokat(ctx, padding + e.posX * skala, padding + e.posY * skala, e.wys * skala, e.szer * skala, kolorWypelnienia);
-                    let tekstDoWyswietlenia = `ID:${e.displayId}\n${e.szer}x${e.wys}`;
-                    if (e.obrot === 'TAK') {
-                        tekstDoWyswietlenia += '\n(Obrócony)';
-                    }
-                    tekstDoWyswietlenia += dodatkowyTekst;
-                    rysujTekst(ctx, tekstDoWyswietlenia, padding + e.posX * skala, padding + e.posY * skala, e.wys * skala, e.szer * skala, 'black', 9);
-                });
-
-                // Rysuj obszary odpadów
-                // Top margin waste
-                const szerGornyMargines = b.dl;
-                const wysGornyMargines = MARGINES_BOCZNY;
-                if (szerGornyMargines >= minWysOdpadu && wysGornyMargines >= minSzerOdpadu) {
-                    rysujProstokat(ctx, padding, padding, szerGornyMargines * skala, wysGornyMargines * skala, 'rgba(255, 100, 100, 0.7)');
-                    rysujTekst(ctx, `Odpad:\n${wysGornyMargines}x${szerGornyMargines}mm`, padding, padding, szerGornyMargines * skala, wysGornyMargines * skala, 'black', 8);
-                    sumaOdpadkow += szerGornyMargines * wysGornyMargines;
-                }
-
-                // Bottom margin waste
-                const szerDolnyMargines = b.dl;
-                const wysDolnyMargines = MARGINES_BOCZNY;
-                if (szerDolnyMargines >= minWysOdpadu && wysDolnyMargines >= minSzerOdpadu) {
-                    rysujProstokat(ctx, padding, padding + (b.szer - wysDolnyMargines) * skala, szerDolnyMargines * skala, wysDolnyMargines * skala, 'rgba(255, 100, 100, 0.7)');
-                    rysujTekst(ctx, `Odpad:\n${wysDolnyMargines}x${szerDolnyMargines}mm`, padding, padding + (b.szer - wysDolnyMargines) * skala, szerDolnyMargines * skala, wysDolnyMargines * skala, 'black', 8);
-                    sumaOdpadkow += szerDolnyMargines * wysDolnyMargines;
-                }
-
-                let currentXForWaste = 0;
-                b.rzedy.forEach(rzad => {
-                    const dlUzytaWRzedzie = rzad.maxXinRow;
-                    const odpWysWRzedzie = szerokoscUkladania - rzad.currentY + marginesWewnetrzny;
-                    const odpSzerWRzedzie = dlUzytaWRzedzie;
-
-                    // Waste within rows (vertical gaps between elements in a row)
-                    if (odpWysWRzedzie > 1 && odpWysWRzedzie >= minSzerOdpadu && odpSzerWRzedzie >= minWysOdpadu) {
-                        const odpadX = padding + rzad.startX * skala;
-                        const odpadY = padding + (MARGINES_BOCZNY + rzad.currentY - marginesWewnetrzny) * skala;
-                        const odpadSzer_scaled = odpSzerWRzedzie * skala;
-                        const odpadWys_scaled = odpWysWRzedzie * skala;
-
-                        rysujProstokat(ctx, odpadX, odpadY, odpadSzer_scaled, odpadWys_scaled, 'rgba(255, 150, 150, 0.7)');
-                        rysujTekst(ctx, `Odpad:\n${odpWysWRzedzie.toFixed(0)}x${odpSzerWRzedzie.toFixed(0)}mm`, odpadX, odpadY, odpadSzer_scaled, odpadWys_scaled, 'black', 8);
-                        sumaOdpadkow += odpSzerWRzedzie * odpWysWRzedzie;
-                    }
-                    currentXForWaste = Math.max(currentXForWaste, rzad.startX + rzad.maxXinRow);
-                });
-
-                // Remaining horizontal waste after all rows (if any)
-                const odpadPoElementachSzer = b.dl - maxUsedLength;
-                const odpadPoElementachWys = szerokoscUkladania; // Full width of the usable area
-                if (odpadPoElementachSzer > 1 && odpadPoElementachSzer >= minWysOdpadu && odpadPoElementachWys >= minSzerOdpadu) {
-                    const odpadX = padding + maxUsedLength * skala;
-                    const odpadY = padding + MARGINES_BOCZNY * skala;
-                    const odpadSzer_scaled = odpadPoElementachSzer * skala;
-                    const odpadWys_scaled = odpadPoElementachWys * skala;
-
-                    rysujProstokat(ctx, odpadX, odpadY, odpadSzer_scaled, odpadWys_scaled, 'rgba(255, 150, 150, 0.7)');
-                    rysujTekst(ctx, `Odpad:\n${odpadPoElementachWys.toFixed(0)}x${odpadPoElementachSzer.toFixed(0)}mm`, odpadX, odpadY, odpadSzer_scaled, odpadWys_scaled, 'black', 8);
-                    sumaOdpadkow += odpadPoElementachSzer * odpadPoElementachWys;
-                }
-            });
-
-            // Display summary
-            const podsumowanieDiv = document.getElementById('podsumowanie');
-            podsumowanieDiv.innerHTML = `
-                <h3>Podsumowanie Optymalizacji</h3>
-                <p><strong>Liczba użytych belek:</strong> ${belki.length}</p>
-                 <p><strong>Calkowite zuzycie materialu (dlugosc rolki):</strong> ${(sumaZuzyciaMetryBiezace / 1000).toFixed(3)} mb</p>
-                <p><strong>Liczba wymaganych elementów:</strong> ${totalRequestedElements}</p>
-                <p><strong>Liczba ułożonych elementów:</strong> ${placedElementsCount}</p>
-                <p style="display: none;"><strong>Całkowita powierzchnia ułożonych elementów:</strong> ${(sumaZuzyciaPowierzchnia / 1000000).toFixed(2)} m²</p> //
-                <p style="display: none;"><strong>Całkowita powierzchnia odpadów (użyteczne):</strong> ${(sumaOdpadkow / 1000000).toFixed(2)} m²</p> //
-
-                <p style="display: none;"><strong>Całkowita powierzchnia użytych belek:</strong> ${(totalBeamArea / 1000000).toFixed(2)} m²</p> //
-                <p><strong>Wydajność cięcia:</strong> ${((sumaZuzyciaPowierzchnia / totalBeamArea) * 100).toFixed(2)}%</p>
-
-                <p>
-                    <strong>Elementy wymagające klejenia:</strong>
-                    ${listaElementowDoCiecia.filter(item => item.klejony === 'TAK').length} sztuk
-                </p>
-                 <p>
-                    <strong>Elementy przycięte:</strong>
-                    ${listaElementowDoCiecia.filter(item => item.klejony === 'PRZYCIĘTY').length} sztuk
-                </p>
-            `;
+        if (e.klejony === 'TAK') {
+            kolorWypelnienia = '#add8e6'; // Jasnoniebieski dla klejonych części
+            dodatkowyTekst = `\n(Klejenie z ${e.originalSzer}x${e.originalWys}mm)`;
+        } else if (e.klejony === 'PRZYCIĘTY') {
+            kolorWypelnienia = '#ffb3ba'; // Jasnoczerwony dla przyciętych części
+            dodatkowyTekst = `\n(Przycięty z ${e.originalSzer}x${e.originalWys}mm)`;
         }
+
+        rysujProstokat(ctx, padding + e.posX * skala, padding + e.posY * skala, e.wys * skala, e.szer * skala, kolorWypelnienia);
+        let tekstDoWyswietlenia = `ID:${e.displayId}\n${e.szer}x${e.wys}`;
+        if (e.obrot === 'TAK') {
+            tekstDoWyswietlenia += '\n(Obrócony)';
+        }
+        tekstDoWyswietlenia += dodatkowyTekst;
+        rysujTekst(ctx, tekstDoWyswietlenia, padding + e.posX * skala, padding + e.posY * skala, e.wys * skala, e.szer * skala, 'black', 9);
+    });
+
+    // Rysuj obszary odpadów
+    // Top margin waste
+    const szerGornyMargines = b.dl;
+    const wysGornyMargines = MARGINES_BOCZNY;
+    if (szerGornyMargines >= minWysOdpadu && wysGornyMargines >= minSzerOdpadu) {
+        rysujProstokat(ctx, padding, padding, szerGornyMargines * skala, wysGornyMargines * skala, 'rgba(255, 100, 100, 0.7)');
+        rysujTekst(ctx, `Odpad:\n${wysGornyMargines}x${szerGornyMargines}mm`, padding, padding, szerGornyMargines * skala, wysGornyMargines * skala, 'black', 8);
+        sumaOdpadkow += szerGornyMargines * wysGornyMargines;
+    }
+
+    // Bottom margin waste
+    const szerDolnyMargines = b.dl;
+    const wysDolnyMargines = MARGINES_BOCZNY;
+    if (szerDolnyMargines >= minWysOdpadu && wysDolnyMargines >= minSzerOdpadu) {
+        rysujProstokat(ctx, padding, padding + (b.szer - wysDolnyMargines) * skala, szerDolnyMargines * skala, wysDolnyMargines * skala, 'rgba(255, 100, 100, 0.7)');
+        rysujTekst(ctx, `Odpad:\n${wysDolnyMargines}x${szerDolnyMargines}mm`, padding, padding + (b.szer - wysDolnyMargines) * skala, szerDolnyMargines * skala, wysDolnyMargines * skala, 'black', 8);
+        sumaOdpadkow += szerDolnyMargines * wysDolnyMargines;
+    }
+
+    let currentXForWaste = 0;
+    b.rzedy.forEach(rzad => {
+        const dlUzytaWRzedzie = rzad.maxXinRow;
+        const odpWysWRzedzie = szerokoscUkladania - rzad.currentY + marginesWewnetrzny;
+        const odpSzerWRzedzie = dlUzytaWRzedzie;
+
+        // Waste within rows (vertical gaps between elements in a row)
+        if (odpWysWRzedzie > 1 && odpWysWRzedzie >= minSzerOdpadu && odpSzerWRzedzie >= minWysOdpadu) {
+            const odpadX = padding + rzad.startX * skala;
+            const odpadY = padding + (MARGINES_BOCZNY + rzad.currentY - marginesWewnetrzny) * skala;
+            const odpadSzer_scaled = odpSzerWRzedzie * skala;
+            const odpadWys_scaled = odpWysWRzedzie * skala;
+
+            rysujProstokat(ctx, odpadX, odpadY, odpadSzer_scaled, odpadWys_scaled, 'rgba(255, 150, 150, 0.7)');
+            rysujTekst(ctx, `Odpad:\n${odpWysWRzedzie.toFixed(0)}x${odpSzerWRzedzie.toFixed(0)}mm`, odpadX, odpadY, odpadSzer_scaled, odpadWys_scaled, 'black', 8);
+            sumaOdpadkow += odpSzerWRzedzie * odpWysWRzedzie;
+        }
+        currentXForWaste = Math.max(currentXForWaste, rzad.startX + rzad.maxXinRow);
+    });
+
+    // Remaining horizontal waste after all rows (if any)
+    const odpadPoElementachSzer = b.dl - maxUsedLength;
+    const odpadPoElementachWys = szerokoscUkladania; // Full width of the usable area
+    if (odpadPoElementachSzer > 1 && odpadPoElementachSzer >= minWysOdpadu && odpadPoElementachWys >= minSzerOdpadu) {
+        const odpadX = padding + maxUsedLength * skala;
+        const odpadY = padding + MARGINES_BOCZNY * skala;
+        const odpadSzer_scaled = odpadPoElementachSzer * skala;
+        const odpadWys_scaled = odpadPoElementachWys * skala;
+
+        rysujProstokat(ctx, odpadX, odpadY, odpadSzer_scaled, odpadWys_scaled, 'rgba(255, 150, 150, 0.7)');
+        rysujTekst(ctx, `Odpad:\n${odpadPoElementachWys.toFixed(0)}x${odpadPoElementachSzer.toFixed(0)}mm`, odpadX, odpadY, odpadSzer_scaled, odpadWys_scaled, 'black', 8);
+        sumaOdpadkow += odpadPoElementachSzer * odpadPoElementachWys;
+    }
+}); // <<-- KONIEC PĘTLI belki.forEach
+
+// Tutaj wklej blok kodu do obliczania finalConsumption
+let lastBeamUsedLength = 0;
+if (belki.length > 0) {
+    let maxUsedLength = 0;
+    belki[belki.length - 1].elementy.forEach(e => {
+        maxUsedLength = Math.max(maxUsedLength, e.posX + e.wys);
+    });
+    lastBeamUsedLength = maxUsedLength;
+}
+
+const totalBeamLength = belki.length * belki[0].dl;
+const wasteOnLastBeam = belki[0].dl - lastBeamUsedLength;
+const finalConsumption = totalBeamLength - wasteOnLastBeam;
+
+// Display summary
+const podsumowanieDiv = document.getElementById('podsumowanie');
+podsumowanieDiv.innerHTML = `
+    <h3>Podsumowanie Optymalizacji</h3>
+    <p><strong>Liczba użytych belek:</strong> ${belki.length}</p>
+    <p><strong>Całkowite zużycie materiału:</strong> ${(finalConsumption / 1000).toFixed(3)} m</p>
+    <p><strong>Wydajność cięcia:</strong> ${((sumaZuzyciaPowierzchnia / totalBeamArea) * 100).toFixed(2)}%</p>
+    <p><strong>Liczba wymaganych elementów:</strong> ${totalRequestedElements}</p>
+    <p><strong>Liczba ułożonych elementów:</strong> ${placedElementsCount}</p>
+     <p><strong>Elementy wymagające klejenia:</strong>
+        ${listaElementowDoCiecia.filter(item => item.klejony === 'TAK').length} sztuk
+    </p>
+    <p>
+        <strong>Elementy przycięte:</strong>
+        ${listaElementowDoCiecia.filter(item => item.klejony === 'PRZYCIĘTY').length} sztuk
+    </p>
+    <p style="display: none;"><strong>Całkowita powierzchnia ułożonych elementów:</strong> ${(sumaZuzyciaPowierzchnia / 1000000).toFixed(2)} m²</p>
+    <p style="display: none;"><strong>Całkowita powierzchnia odpadów (użyteczne):</strong> ${(sumaOdpadkow / 1000000).toFixed(2)} m²</p>
+    <p style="display: none;"><strong>Całkowita powierzchnia użytych belek:</strong> ${(totalBeamArea / 1000000).toFixed(2)} m²</p>
+`;
+}
 
         async function generujPDF() {
             const { jsPDF } = window.jspdf;
@@ -801,7 +811,7 @@ if (wymaganaSzerokosc <= szerokoscUkladania &&
 
             const addPageHeader = () => {
                 doc.setFontSize(16);
-                doc.text('Optymalizator Cięcia 2D - Raport', margin, currentY);
+                doc.text('Optymalizator Ciecia 2D - Raport', margin, currentY);
                 currentY += 10;
                 doc.setFontSize(10);
                 doc.text(`Generowano: ${new Date().toLocaleString()}`, margin, currentY);

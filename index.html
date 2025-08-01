@@ -48,7 +48,7 @@
         th { background-color: #f2f2f2; font-weight: bold; }
         tr:nth-child(even) { background-color: #f9f9f9; }
     </style>
-</head>                                        
+</head>
 <body>
     <div class="main-container">
         <h1>Optymalizator Cięcia 2D</h1>
@@ -226,7 +226,7 @@
             let szerDoUlozenia = szer;
             let wysDoUlozenia = wys;
             let obrot = 'NIE';
-             let klejony = isSubElement ? 'TAK' : 'NIE';
+let klejony = isSubElement ? 'TAK' : 'NIE';
 
             let currentElementId = initialId !== null ? initialId : nextId;
 
@@ -361,7 +361,7 @@
                 const iloscColIndex = headers.indexOf('Ilość');
 
                 if (szerokoscColIndex === -1 || wysokoscColIndex === -1 || iloscColIndex === -1) {
-                    alert("Błąd: Plik Excel musi zawierać kolumny z nagłówkami: 'Szerokość (mm)', 'Wysokość (mm)', 'Ilość'. Kolumna 'ID' jest opcjonalna. Sprawdź wielkość liter i pisownię.");
+                    alert("Błąd: Plik Excel musi zawierać kolumny z nagłówkami: 'Szerokość (mm)', 'Wysokość (mm)', 'Ilość' ");
                     return;
                 }
 
@@ -405,30 +405,62 @@
         }
 
         function aktualizujTabele() {
-            const tbody = document.getElementById('tabelaElementow').getElementsByTagName('tbody')[0];
-            tbody.innerHTML = '';
+    const tbody = document.getElementById('tabelaElementow').getElementsByTagName('tbody')[0];
+    tbody.innerHTML = '';
 
-            listaElementowDoCiecia.forEach(item => {
-                const row = tbody.insertRow();
-                const idCell = row.insertCell(0);
-                idCell.innerText = item.id + (item.parentId && item.parentId !== item.id ? ` (część elem. ${item.parentId})` : '');
-                row.insertCell(1).innerText = item.szer;
-                row.insertCell(2).innerText = item.wys;
-                row.insertCell(3).innerText = item.ilosc;
-                row.insertCell(4).innerText = item.obrot;
-                const klejonyCell = row.insertCell(5);
-                klejonyCell.innerText = item.klejony || 'NIE';
-
-                const deleteCell = row.insertCell(6);
-                const deleteButton = document.createElement('button');
-                deleteButton.innerText = 'Usuń';
-                deleteButton.style.backgroundColor = '#e74c3c';
-                deleteButton.style.padding = '5px 10px';
-                deleteButton.style.height = 'auto';
-                deleteButton.onclick = () => usunElement(item.id);
-                deleteCell.appendChild(deleteButton);
-            });
+    // Krok 1: Stwórz mapę dla nowych, przeindeksowanych ID rodziców
+    const parentIdMap = {};
+    let newParentId = 1;
+    listaElementowDoCiecia.forEach(item => {
+        // Przetwarzaj tylko elementy najwyższego poziomu (nie sklejane części), aby uzyskać nowe ID
+        if (!item.parentId || item.parentId === item.id) {
+            if (!parentIdMap[item.id]) {
+                parentIdMap[item.id] = newParentId++;
+            }
         }
+    });
+
+    // Krok 2: Stwórz licznik dla części każdego rodzica
+    const partCounters = {};
+
+    listaElementowDoCiecia.forEach(item => {
+        const row = tbody.insertRow();
+        const idCell = row.insertCell(0);
+        let displayId = '';
+
+        if (item.parentId && item.parentId !== item.id) {
+            // To jest sklejona część
+            const mappedParentId = parentIdMap[item.parentId];
+            if (!partCounters[item.parentId]) {
+                partCounters[item.parentId] = 1;
+            }
+            displayId = `${mappedParentId}-${partCounters[item.parentId]}`;
+            idCell.innerText = `${displayId} (część elem. ${mappedParentId})`;
+            partCounters[item.parentId]++;
+        } else {
+            // To jest element najwyższego poziomu, niesklejany
+            const mappedId = parentIdMap[item.id];
+            idCell.innerText = mappedId;
+        }
+
+        row.insertCell(1).innerText = item.szer;
+        row.insertCell(2).innerText = item.wys;
+        row.insertCell(3).innerText = item.ilosc;
+        row.insertCell(4).innerText = item.obrot;
+
+        const klejonyCell = row.insertCell(5);
+        klejonyCell.innerText = item.klejony || 'NIE';
+
+        const deleteCell = row.insertCell(6);
+        const deleteButton = document.createElement('button');
+        deleteButton.innerText = 'Usuń';
+        deleteButton.style.backgroundColor = '#e74c3c';
+        deleteButton.style.padding = '5px 10px';
+        deleteButton.style.height = 'auto';
+        deleteButton.onclick = () => usunElement(item.id);
+        deleteCell.appendChild(deleteButton);
+    });
+}
 
         function uruchomOptymalizacje() {
             const szerRolki = parseFloat(document.getElementById('szerRolki').value);
@@ -482,6 +514,19 @@
 
                 return b.wys - a.wys;
             });
+			const parentCounters = {};
+elementyDoPakowania.forEach(e => {
+    if (e.parentId) {
+        if (!parentCounters[e.parentId]) {
+            parentCounters[e.parentId] = 0;
+        }
+        parentCounters[e.parentId]++;
+        e.displayId = `${e.parentId}-${parentCounters[e.parentId]}`;
+    } else {
+        // Dla elementów niesklejanych, użyj ich standardowego ID
+        e.displayId = e.id;
+    }
+});
 
 
             let belki = [];
@@ -660,7 +705,7 @@ if (wymaganaSzerokosc <= szerokoscUkladania &&
                     }
 
                     rysujProstokat(ctx, padding + e.posX * skala, padding + e.posY * skala, e.wys * skala, e.szer * skala, kolorWypelnienia);
-                    let tekstDoWyswietlenia = `ID:${e.id}\n${e.szer}x${e.wys}`;
+                    let tekstDoWyswietlenia = `ID:${e.displayId}\n${e.szer}x${e.wys}`;
                     if (e.obrot === 'TAK') {
                         tekstDoWyswietlenia += '\n(Obrócony)';
                     }

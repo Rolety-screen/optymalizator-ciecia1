@@ -2,7 +2,6 @@
 // Tutaj możesz dodawać, usuwać lub edytować swoje materiały
 // Format: 'Nazwa Materiału': { szer: Szerokość Elementu, wys: Wysokość Elementu, szerRolkiDomyslna: Domyślna Szerokość Rolki, dlRolkiDomyslna: Domyślna Długość Rolki }
 const bazaMaterialow = {
-    A600 BO-W':    { szer: 300, wys: 200, szerRolkiDomyslna: 2000, dlRolkiDomyslna: 3000 },
 'A660 BO-W':   {szer:1000, wys:1000, szerRolkiDomyslna: 2500, dlRolkiDomyslna: 20000  },
 'SERGE600 1% 002002 WHITE - 190 CM ':   {szer:1000, wys:1000, szerRolkiDomyslna: 1900, dlRolkiDomyslna: 50000  },
 'SERGE600 1% 002002 WHITE - 270 CM ':   {szer:1000, wys:1000, szerRolkiDomyslna: 2700, dlRolkiDomyslna: 50000  },

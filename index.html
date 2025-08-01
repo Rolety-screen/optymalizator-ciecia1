@@ -48,7 +48,7 @@
         th { background-color: #f2f2f2; font-weight: bold; }
         tr:nth-child(even) { background-color: #f9f9f9; }
     </style>
-</head>
+</head>                                        
 <body>
     <div class="main-container">
         <h1>Optymalizator Cięcia 2D</h1>
@@ -505,9 +505,10 @@
                         const rzad = b.rzedy[j];
 
                         // Check if element fits in current row (width wise) and doesn't exceed beam length
-                        if (rzad.currentY + e.szer + marginesWewnetrzny <= szerokoscUkladania &&
-                            (rzad.startX + e.wys <= b.dl)
-                            ) {
+                       const wymaganaSzerokosc = rzad.currentY > 0 ? rzad.currentY + e.szer + marginesWewnetrzny : e.szer;
+if (wymaganaSzerokosc <= szerokoscUkladania &&
+    (rzad.startX + e.wys <= b.dl)
+    ) {
                             e.posX = rzad.startX;       // Element X position
                             e.posY = MARGINES_BOCZNY + rzad.currentY; // Element Y position, accounting for top margin
 

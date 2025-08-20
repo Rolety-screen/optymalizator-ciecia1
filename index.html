@@ -60,6 +60,13 @@
                     <label for="wyborMaterialuRolki">Wybierz materiał rolki:</label>
                     <select id="wyborMaterialuRolki" onchange="zaktualizujDaneRolki()"></select>
                 </div>
+				<div>
+                    <label for="rodzajMaterialu">Rodzaj Materiału:</label>
+                    <select id="rodzajMaterialu" name="rodzajMaterialu">
+                        <option value="standart">Standart</option>
+                        <option value="dn">DN</option>
+                    </select>
+                </div>
                 <div>
                     <label for="szerRolki">Szerokość Rolki (mm):</label>
                     <input type="number" id="szerRolki" value="1600">
@@ -98,6 +105,7 @@
                     <label for="wysKomponentu">Wysokość (mm):</label>
                     <input type="number" id="wysKomponentu" placeholder="np. 400">
                 </div>
+                
                 <div>
                     <label for="nowyIlosc">Ilość:</label>
                     <input type="number" id="nowyIlosc" value="1">
@@ -187,14 +195,43 @@
             }
             aktualizujKomponentId();
         };
-
-        function zaktualizujDaneRolki() {
+ function zaktualizujDaneRolki() {
             const nazwaMaterialuRolki = document.getElementById('wyborMaterialuRolki').value;
             const material = bazaMaterialow[nazwaMaterialuRolki];
+            const dlRolkiInput = document.getElementById('dlRolki');
+            const szerRolkiInput = document.getElementById('szerRolki');
+            const rodzajMaterialuSelect = document.getElementById('rodzajMaterialu');
+            
             if (material) {
-                document.getElementById('szerRolki').value = material.szerRolkiDomyslna;
-                document.getElementById('dlRolki').value = material.dlRolkiDomyslna;
+                szerRolkiInput.value = material.szerRolkiDomyslna;
+                // Pobranie domyślnej długości rolki z pliku materials.js, jeśli istnieje
+                const podstawaDlugosci = material.dlRolkiDomyslna;
+                dlRolkiInput.value = podstawaDlugosci;
+
+                // Ustawienie rodzaju materiału z materials.js, jeśli istnieje
+                if (material.rodzaj) {
+                    rodzajMaterialuSelect.value = material.rodzaj;
+                }
+            } else {
+                // Jeśli materiał nie ma domyślnych wartości, użyj wartości z formularza
+                console.warn("Brak danych w materials.js. Używam domyślnych wartości z formularza.");
             }
+
+            const rodzaj = document.getElementById('rodzajMaterialu').value;
+            const podstawa = parseFloat(document.getElementById('dlRolki').value);
+            
+            // Logika obliczania nowej długości rolki na podstawie rodzaju
+            let nowaDlugoscRolki;
+            if (rodzaj === "Standart") {
+                nowaDlugoscRolki = podstawa + 250;
+            } else if (rodzaj === "DN") {
+                nowaDlugoscRolki = (podstawa * 2) + 250;
+            } else {
+                // Domyślnie, jeśli nie ma dopasowania, użyj podstawowej wartości
+                nowaDlugoscRolki = podstawa;
+            }
+            
+            dlRolkiInput.value = nowaDlugoscRolki;
         }
 
         function aktualizujKomponentId() {
@@ -321,9 +358,17 @@ let klejony = isSubElement ? 'TAK' : 'NIE';
             const szer = parseFloat(document.getElementById('szerKomponentu').value);
             const wys = parseFloat(document.getElementById('wysKomponentu').value);
             const ilosc = parseInt(document.getElementById('nowyIlosc').value);
+            const rodzajMaterialu = document.getElementById('rodzajMaterialu').value;
+            let wysokoscZuw = wys;
+
+            if (rodzajMaterialu === 'standart') {
+                wysokoscZuw = wys + 250;
+            } else if (rodzajMaterialu === 'dn') {
+                wysokoscZuw = (wys * 2) + 250;
+            }
 
             // Przy dodawaniu ręcznym, wywołujemy bez parentId i isSubElement, i bez initialId
-            if(dodajPojedynczyElement(szer, wys, ilosc, false, null, szer, wys, null)) {
+            if(dodajPojedynczyElement(szer, wysokoscZuw, ilosc, false, null, szer, wys, null)) {
                 aktualizujTabele();
                 document.getElementById('szerKomponentu').value = '';
                 document.getElementById('wysKomponentu').value = '';

@@ -51,7 +51,11 @@
 </head>
 <body>
     <div class="main-container">
-        <h1>Optymalizator Ciecia 2D______________________________________________________________________(by PETRO OSMAK)</h1>
+        <h1 style="display: flex; align-items: center; gap: 10px;">
+		Optymalizator Cięcia 2D by 
+    <img src="PO logo.png" alt="Logo by PETRO OSMAK" style="height: 80px; width: auto;">
+    
+</h1>
 
         <div class="panel">
             <h2>Dane Główne Rolki</h2>
@@ -136,13 +140,18 @@
             <summary>
                 <h2>Lista Elementów do Optymalizacji</h2>
             </summary>
+			 <p style="margin-top: 10px; font-size: 0.9em; color: #555;">
+                UWAGA : Rodzaj materiału "Standart" = wysokosc +250  oraz  
+				        Rodzaj materiału "DN" = wysokosc * 2 + 250
+            </p>
 
             <table id="tabelaElementow">
                 <thead>
                     <tr>
                         <th>ID</th>
                         <th>Szerokość</th>
-                        <th>Wysokość</th>
+						<th>Wysokość</th>
+                        <th>Podana Wysokość</th>
                         <th>Ilość</th>
                         <th>Obrót?</th>
                         <th>Klejony?</th>
@@ -210,7 +219,8 @@
 
                 // Ustawienie rodzaju materiału z materials.js, jeśli istnieje
                 if (material.rodzaj) {
-                    rodzajMaterialuSelect.value = material.rodzaj;
+                    // Konwersja na małe litery, aby dopasować do wartości w HTML (<option value="standart">)
+                    rodzajMaterialuSelect.value = material.rodzaj.toLowerCase();
                 }
             } else {
                 // Jeśli materiał nie ma domyślnych wartości, użyj wartości z formularza
@@ -222,10 +232,11 @@
             
             // Logika obliczania nowej długości rolki na podstawie rodzaju
             let nowaDlugoscRolki;
-            if (rodzaj === "Standart") {
-                nowaDlugoscRolki = podstawa + 250;
-            } else if (rodzaj === "DN") {
-                nowaDlugoscRolki = (podstawa * 2) + 250;
+            // Zmiana na małe litery w celu dopasowania do wartości z <select>
+            if (rodzaj === "standart") {
+                nowaDlugoscRolki = podstawa;
+            } else if (rodzaj === "dn") {
+                nowaDlugoscRolki = podstawa;
             } else {
                 // Domyślnie, jeśli nie ma dopasowania, użyj podstawowej wartości
                 nowaDlugoscRolki = podstawa;
@@ -378,7 +389,7 @@ let klejony = isSubElement ? 'TAK' : 'NIE';
             }
         }
 
-        function zaladujExcel(event) {
+          function zaladujExcel(event) {
             const file = event.target.files[0];
             if (!file) {
                 return;
@@ -417,15 +428,26 @@ let klejony = isSubElement ? 'TAK' : 'NIE';
                 listaElementowDoCiecia = [];
                 nextId = 1;
 
+                // Pobranie aktualnie wybranego rodzaju materiału PRZED pętlą
+                const rodzajMaterialu = document.getElementById('rodzajMaterialu').value;
+
                 for (let i = 1; i < jsonData.length; i++) {
                     const row = jsonData[i];
                     const idFromExcel = (idColIndex !== -1 && row[idColIndex] !== undefined && row[idColIndex] !== null) ? parseInt(row[idColIndex]) : null;
                     const szer = parseFloat(row[szerokoscColIndex]);
-                    const wys = parseFloat(row[wysokoscColIndex]);
+                    const wys = parseFloat(row[wysokoscColIndex]); // To jest "Podana wysokość"
                     const ilosc = parseInt(row[iloscColIndex]);
 
-                    // Pass ID from Excel if available, otherwise pass null so dodajPojedynczyElement generates one
-                    if (dodajPojedynczyElement(szer, wys, ilosc, false, null, szer, wys, idFromExcel)) {
+                    // Zastosowanie logiki obliczeniowej dla wysokości, tak jak przy ręcznym dodawaniu
+                    let wysokoscZuw = wys;
+                    if (rodzajMaterialu === 'standart') {
+                        wysokoscZuw = wys + 250;
+                    } else if (rodzajMaterialu === 'dn') {
+                        wysokoscZuw = (wys * 2) + 250;
+                    }
+
+                    // Przekazanie do funkcji obliczonej wysokości (wysokoscZuw) oraz oryginalnej (wys)
+                    if (dodajPojedynczyElement(szer, wysokoscZuw, ilosc, false, null, szer, wys, idFromExcel)) {
                         elementsAddedCount++;
                         if (idFromExcel !== null && !isNaN(idFromExcel) && idFromExcel > maxIdFromExcel) {
                             maxIdFromExcel = idFromExcel;
@@ -489,14 +511,15 @@ let klejony = isSubElement ? 'TAK' : 'NIE';
         }
 
         row.insertCell(1).innerText = item.szer;
-        row.insertCell(2).innerText = item.wys;
-        row.insertCell(3).innerText = item.ilosc;
-        row.insertCell(4).innerText = item.obrot;
+        row.insertCell(2).innerText = item.wys ; // Obliczona wysokość do cięcia
+        row.insertCell(3).innerText = item.originalWys; // NOWA KOMÓRKA: Podana wysokość
+        row.insertCell(4).innerText = item.ilosc;
+        row.insertCell(5).innerText = item.obrot;
 
-        const klejonyCell = row.insertCell(5);
+        const klejonyCell = row.insertCell(6);
         klejonyCell.innerText = item.klejony || 'NIE';
 
-        const deleteCell = row.insertCell(6);
+        const deleteCell = row.insertCell(7);
         const deleteButton = document.createElement('button');
         deleteButton.innerText = 'Usuń';
         deleteButton.style.backgroundColor = '#e74c3c';
@@ -737,25 +760,28 @@ belki.forEach((b, index) => {
     rysujProstokat(ctx, padding, padding, b.dl * skala, b.szer * skala, 'rgba(200, 200, 200, 0.2)');
 
     b.elementy.forEach(e => {
-        let kolorWypelnienia = '#90ee90'; // Domyślny zielony
-        let dodatkowyTekst = '';
+                let kolorWypelnienia = '#90ee90'; // Domyślny zielony
+                let dodatkowyTekst = '';
 
-        if (e.klejony === 'TAK') {
-            kolorWypelnienia = '#add8e6'; // Jasnoniebieski dla klejonych części
-            dodatkowyTekst = `\n(Klejenie z ${e.originalSzer}x${e.originalWys}mm)`;
-        } else if (e.klejony === 'PRZYCIĘTY') {
-            kolorWypelnienia = '#ffb3ba'; // Jasnoczerwony dla przyciętych części
-            dodatkowyTekst = `\n(Przycięty z ${e.originalSzer}x${e.originalWys}mm)`;
-        }
+                if (e.klejony === 'TAK') {
+                    kolorWypelnienia = '#add8e6'; // Jasnoniebieski dla klejonych części
+                    dodatkowyTekst = `\n(Klejenie z ${e.originalSzer}x${e.originalWys}mm)`;
+                } else if (e.klejony === 'PRZYCIĘTY') {
+                    kolorWypelnienia = '#ffb3ba'; // Jasnoczerwony dla przyciętych części
+                    dodatkowyTekst = `\n(Przycięty z ${e.originalSzer}x${e.originalWys}mm)`;
+                }
 
-        rysujProstokat(ctx, padding + e.posX * skala, padding + e.posY * skala, e.wys * skala, e.szer * skala, kolorWypelnienia);
-        let tekstDoWyswietlenia = `ID:${e.displayId}\n${e.szer}x${e.wys}`;
-        if (e.obrot === 'TAK') {
-            tekstDoWyswietlenia += '\n(Obrócony)';
-        }
-        tekstDoWyswietlenia += dodatkowyTekst;
-        rysujTekst(ctx, tekstDoWyswietlenia, padding + e.posX * skala, padding + e.posY * skala, e.wys * skala, e.szer * skala, 'black', 9);
-    });
+                rysujProstokat(ctx, padding + e.posX * skala, padding + e.posY * skala, e.wys * skala, e.szer * skala, kolorWypelnienia);
+
+                // ZMODYFIKOWANA LINIA
+                let tekstDoWyswietlenia = `ID:${e.displayId}\n${e.szer}x${e.wys}\n(wys: ${e.originalWys}mm)`;
+
+                if (e.obrot === 'TAK') {
+                    tekstDoWyswietlenia += '\n(Obrócony)';
+                }
+                tekstDoWyswietlenia += dodatkowyTekst;
+                rysujTekst(ctx, tekstDoWyswietlenia, padding + e.posX * skala, padding + e.posY * skala, e.wys * skala, e.szer * skala, 'black', 9);
+            });
 
     // Rysuj obszary odpadów
     // Top margin waste

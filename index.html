@@ -263,107 +263,101 @@
          * @returns {boolean} True jeśli element został dodany/obsłużony, false w przypadku błędu.
          */
         function dodajPojedynczyElement(szer, wys, ilosc, isSubElement = false, parentId = null, originalSzer = szer, originalWys = wys, initialId = null) {
-            const szerRolki = parseFloat(document.getElementById('szerRolki').value);
-            const dostepnaSzerokoscRolki = szerRolki - (2 * MARGINES_BOCZNY);
+    const szerRolki = parseFloat(document.getElementById('szerRolki').value);
+    const dostepnaSzerokoscRolki = szerRolki - (2 * MARGINES_BOCZNY);
 
-            if (isNaN(szer) || isNaN(wys) || isNaN(ilosc) || szer <= 0 || wys <= 0 || ilosc <= 0) {
-                console.warn(`Pominięto element z nieprawidłowymi danymi: Szerokość=${szer}, Wysokość=${wys}, Ilość=${ilosc}`);
-                return false;
+    if (isNaN(szer) || isNaN(wys) || isNaN(ilosc) || szer <= 0 || wys <= 0 || ilosc <= 0) {
+        console.warn(`Pominięto element z nieprawidłowymi danymi: Szerokość=${szer}, Wysokość=${wys}, Ilość=${ilosc}`);
+        return false;
+    }
+
+    let szerDoUlozenia = szer;
+    let wysDoUlozenia = wys;
+    let obrot = 'NIE';
+    let klejony = isSubElement ? 'TAK' : 'NIE';
+    let currentElementId = initialId !== null ? initialId : nextId;
+
+    // Sprawdzenie, czy element wymaga klejenia
+    if (!isSubElement && szer > dostepnaSzerokoscRolki) {
+        // Spróbuj obrócić, jeśli po obrocie szerokość (oryginalna wysokość) zmieści się
+        if (wys <= dostepnaSzerokoscRolki) {
+            szerDoUlozenia = wys;
+            wysDoUlozenia = szer;
+            obrot = 'TAK';
+            // Element mieści się po obrocie, nie wymaga klejenia.
+            // Poprawka: Dodanie 250mm do nowej szerokości (oryginalnej wysokości).
+            wysDoUlozenia = szer + 250;
+        } else {
+            // Element jest zbyt szeroki nawet po obrocie, wymaga klejenia.
+            klejony = 'TAK';
+
+            // Dzielimy element na kawałki
+            const szerokoscPozostala = wys - dostepnaSzerokoscRolki;
+            const szerPierwszejCzesci = dostepnaSzerokoscRolki;
+            const wysPierwszejCzesci = szer;
+            const szerDrugiejCzesci = szerokoscPozostala;
+            const wysDrugiejCzesci = szer;
+
+            // Jeśli druga część jest zbyt mała, żeby ją sensownie kleić
+            if (szerDrugiejCzesci < MIN_SZEROKOSC_KLEJENIA) {
+                alert(`Element ${szer}x${originalWys} mm jest zbyt szeroki (${szer}mm > ${dostepnaSzerokoscRolki}mm) i jego druga część do klejenia byłaby mniejsza niż ${MIN_SZEROKOSC_KLEJENIA}mm (${szerDrugiejCzesci.toFixed(0)}mm). Element zostanie przycięty do ${dostepnaSzerokoscRolki}mm.`);
+
+                listaElementowDoCiecia.push({
+                    id: currentElementId,
+                    nazwa: `ID:${currentElementId} (${szer}x${originalWys}) - Część 1 (przyc.)`,
+                    szer: szerPierwszejCzesci,
+                    wys: wysPierwszejCzesci,
+                    ilosc: ilosc,
+                    obrot: 'NIE',
+                    klejony: 'PRZYCIĘTY',
+                    parentId: currentElementId,
+                    originalSzer: originalSzer,
+                    originalWys: originalWys
+                });
+                return true;
             }
 
-            let szerDoUlozenia = szer;
-            let wysDoUlozenia = wys;
-            let obrot = 'NIE';
-let klejony = isSubElement ? 'TAK' : 'NIE';
+            // Rekurencyjnie dodajemy części jako pod-elementy.
+            // Ważne: do pod-elementów przekazujemy oryginalną, nie zmienioną wysokość,
+            // ponieważ dodatek 250mm został już doliczony przed wywołaniem tej funkcji.
+            dodajPojedynczyElement(szerPierwszejCzesci, wysPierwszejCzesci, ilosc, true, currentElementId, originalSzer, originalWys, null);
+            dodajPojedynczyElement(szerDrugiejCzesci, wysDrugiejCzesci, ilosc, true, currentElementId, originalSzer, originalWys, null);
 
-            let currentElementId = initialId !== null ? initialId : nextId;
-
-            // Sprawdzenie, czy element wymaga klejenia (jeśli jest to element główny, nie pod-element)
-            if (!isSubElement && szer > dostepnaSzerokoscRolki) {
-                // Spróbuj obrócić, jeśli po obrocie szerokość (oryginalna wysokość) zmieści się
-                if (wys <= dostepnaSzerokoscRolki) {
-                    szerDoUlozenia = wys;
-                    wysDoUlozenia = szer;
-                    obrot = 'TAK';
-                    // Po obrocie, element mieści się, więc nie wymaga klejenia
-                } else {
-                    // Element jest zbyt szeroki nawet po obrocie, wymaga klejenia
-                    klejony = 'TAK'; // Ustawiamy flagę dla pierwotnego element
-
-                    // Dzielimy element na kawałki
-                    const szerokoscPozostala = szer - dostepnaSzerokoscRolki;
-
-                    const szerPierwszejCzesci = dostepnaSzerokoscRolki;
-                    const wysPierwszejCzesci = wys;
-
-                    const szerDrugiejCzesci = szerokoscPozostala;
-                    const wysDrugiejCzesci = wys;
-
-                    // Jeśli druga część jest zbyt mała, żeby ją sensownie kleić
-                    if (szerDrugiejCzesci < MIN_SZEROKOSC_KLEJENIA) {
-                        alert(`Element ${szer}x${wys} mm jest zbyt szeroki (${szer}mm > ${dostepnaSzerokoscRolki}mm) i jego druga część do klejenia byłaby mniejsza niż ${MIN_SZEROKOSC_KLEJENIA}mm (${szerDrugiejCzesci.toFixed(0)}mm). Element zostanie przycięty do ${dostepnaSzerokoscRolki}mm.`);
-
-                        listaElementowDoCiecia.push({
-                            id: currentElementId, // Używamy tego samego ID dla przyciętej wersji, bo to jest "oryginał"
-                            nazwa: `ID:${currentElementId} (${szer}x${wys}) - Część 1 (przyc.)`,
-                            szer: szerPierwszejCzesci,
-                            wys: wysPierwszejCzesci,
-                            ilosc: ilosc,
-                            obrot: 'NIE',
-                            klejony: 'PRZYCIĘTY',
-                            parentId: currentElementId, // This element itself is the parent of its "trimmed" state
-                            originalSzer: originalSzer,
-                            originalWys: originalWys
-                        });
-                        //nextId++; // Nie zwiększamy nextId, bo używamy initialId/currentElementId
-                        return true; // Handled by trimming
-                    }
-
-                    // Rekurencyjnie dodajemy części jako pod-elementy.
-                    // Ważne: initialId jest przekazywane tylko do pierwszego wywołania dodajPojedynczyElement
-                    // Dla pod-elementów ID są zawsze generowane automatycznie, a parentId to ID oryginalnego elementu.
-                    dodajPojedynczyElement(szerPierwszejCzesci, wysPierwszejCzesci, ilosc, true, currentElementId, originalSzer, originalWys, null);
-                    dodajPojedynczyElement(szerDrugiejCzesci, wysDrugiejCzesci, ilosc, true, currentElementId, originalSzer, originalWys, null);
-
-                    return true; // Obsłużono poprzez podział
-                }
-            } else if (!isSubElement && szer > dostepnaSzerokoscRolki && wys > dostepnaSzerokoscRolki) {
-                alert(`Element o wymiarach ${szer}x${wys} mm nie może być ułożony na rolce o szerokości ${szerRolki} mm (dostępna przestrzeń to ${dostepnaSzerokoscRolki} mm po odjęciu marginesów), nawet po obrocie. Pominięto ten element.`);
-                return false;
-            }
-
-            // Standardowe dodawanie elementu
-            // Jeśli element jest pod-elementem (isSubElement === true), zawsze używamy nextId i zwiększamy je.
-            // Jeśli nie jest pod-elementem i mieliśmy initialId (z Excela), używamy go.
-            // W przeciwnym razie używamy nextId i zwiększamy je.
-            let finalId;
-            if (isSubElement) {
-                finalId = nextId;
-                nextId++; // Zawsze zwiększamy dla generowanych ID
-            } else {
-                finalId = currentElementId;
-                if (initialId === null) { // Tylko jeśli ID nie przyszło z Excela, zwiększamy nextId
-                    nextId++;
-                }
-            }
-
-
-            const nazwaDoListy = `ID:${finalId} (${szer}x${wys})` + (isSubElement ? ` (Klejenie: ${originalSzer}x${originalWys})` : '');
-
-            listaElementowDoCiecia.push({
-                id: finalId,
-                nazwa: nazwaDoListy,
-                szer: szerDoUlozenia,
-                wys: wysDoUlozenia,
-                ilosc: ilosc,
-                obrot: obrot,
-                klejony: klejony,
-                parentId: parentId,
-                originalSzer: originalSzer,
-                originalWys: originalWys
-            });
-            return true;
+            return true; // Obsłużono poprzez podział
         }
+    } else if (!isSubElement && szer > dostepnaSzerokoscRolki && wys > dostepnaSzerokoscRolki) {
+        alert(`Element o wymiarach ${originalSzer}x${originalWys} mm nie może być ułożony na rolce o szerokości ${szerRolki} mm (dostępna przestrzeń to ${dostepnaSzerokoscRolki} mm po odjęciu marginesów), nawet po obrocie. Pominięto ten element.`);
+        return false;
+    }
+
+    // Standardowe dodawanie elementu
+    let finalId;
+    if (isSubElement) {
+        finalId = nextId;
+        nextId++;
+    } else {
+        finalId = currentElementId;
+        if (initialId === null) {
+            nextId++;
+        }
+    }
+
+    const nazwaDoListy = `ID:${finalId} (${szer}x${originalWys})` + (isSubElement ? ` (Klejenie: ${originalSzer}x${originalWys})` : '');
+
+    listaElementowDoCiecia.push({
+        id: finalId,
+        nazwa: nazwaDoListy,
+        szer: szerDoUlozenia,
+        wys: wysDoUlozenia,
+        ilosc: ilosc,
+        obrot: obrot,
+        klejony: klejony,
+        parentId: parentId,
+        originalSzer: originalSzer,
+        originalWys: originalWys
+    });
+    return true;
+}
 
         function dodajElement() {
             const szer = parseFloat(document.getElementById('szerKomponentu').value);
